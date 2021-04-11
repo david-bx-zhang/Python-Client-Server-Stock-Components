@@ -2,39 +2,42 @@ import json
 import numpy as np
 import pandas as pd
 import re
-from datetime import datetime, timedelta
 
-# helper fn
-def strategy(price, mean, stdev):
-    if price > mean + stdev:
-        return 1
-    elif price < mean - stdev:
-        return -1
-    else:
-        return 0
+from datetime import datetime, timedelta
+from strategy import strategy_trend, strategy_mean_reversion
         
 class Ticker(object):
 
     def __init__(self, ticker, interval=None, prices=None):
+        
+        # self properties
         self.ticker = ticker
         self.interval = interval
         self.prices = prices
 
+        # df which stores all info for a specific symbol
         df = pd.DataFrame.from_dict(prices, orient='index', columns=['price'])
 
         df.index = pd.to_datetime(df.index)
         rollstdev = df.rolling('1d', min_periods=1).std()
         rollmean = df.rolling('1d', min_periods=1).mean()
+        
+        # columns of df
         df['rollmean'] = rollmean
         df['rollstdev'] = rollstdev
-        df['signal'] = df.apply(lambda x: strategy(x['price'], x['rollmean'], x['rollstdev']), axis=1)
         df['position'] = 0
         df['pnl'] = 0
+        
+        # two strategies / trend and mean_reversion
+        df['signal'] = df.apply(lambda x: strategy_trend(x['price'], x['rollmean'], x['rollstdev']), axis=1)
+        # df['signal'] = df.apply(lambda x: strategy_mean_reversion(x['price'], x['rollmean'], x['rollstdev']), axis=1)
 
+        # apply and determine position/pnl from signal
         for i in range(1, len(df)):
             df.loc[df.index[i], 'position'] = df.loc[df.index[i-1], 'position'] + df.loc[df.index[i], 'signal']
             df.loc[df.index[i], 'pnl'] = df.loc[df.index[i-1], 'pnl'] + df.loc[df.index[i-1], 'position'] * (df.loc[df.index[i], 'price'] - df.loc[df.index[i-1], 'price'])
 
+        # fix types
         self.df = df
         self.latest_ts = str(self.df.index[-1])
         self.latest_price = float(self.df.loc[self.latest_ts]['price'])
@@ -44,11 +47,13 @@ class Ticker(object):
 
         row = {}
         
+        # handle different timestamp types
         if isinstance(timestamp, int):
             timestamp = pd.to_datetime(timestamp, unit='s')
         else:
             timestamp = pd.to_datetime(timestamp)
         
+        # calculate new values for each column with new price
         cur_range = self.df.loc[str(timestamp - pd.offsets.Day(1)):]
         cur_range_list = cur_range['price'].tolist()
         cur_range_list.append(price)
@@ -56,18 +61,24 @@ class Ticker(object):
         cur_mean = np.mean(cur_range_list)
         cur_stdev = np.std(cur_range_list)
 
-        cur_signal = strategy(price, cur_mean, cur_stdev)
+        # based on trend/mean reversion strategy
+        cur_signal = strategy_trend(price, cur_mean, cur_stdev)
+        # cur_signal = strategy_mean_reversion(price, cur_mean, cur_stdev)
+
         cur_position = self.df.loc[self.df.index[-1], 'position'] + cur_signal
         cur_pnl = self.df.loc[self.df.index[-1], 'pnl'] + self.df.loc[self.df.index[-1], 'position'] * (price - self.df.loc[self.df.index[-1], 'price'])
 
+        # create new row and append to current df
         row[timestamp] = [price, cur_mean, cur_stdev, cur_signal, cur_signal, cur_pnl]
         new_row = pd.DataFrame.from_dict(row, orient='index', columns=[
             'price', 'rollmean', 'rollstdev', 'signal', 'position', 'pnl'])
         self.df = pd.concat([self.df, new_row])
 
+        # add to prices dict for faster grab
         cur_prices = self.prices
         cur_prices[str(timestamp)] = price
         
+        # faster grab for current
         self.prices = cur_prices
         self.latest_ts = str(timestamp)
         self.latest_price = price
@@ -83,6 +94,8 @@ class Ticker(object):
         return self.ticker
     
     def output_pnl_file(self):
+
+        # prints pnl file with price, signal, pnl columns
         headers = ['price', 'signal', 'pnl']
         data = [self.df['price'], self.df['signal'], self.df['pnl']]
         pnl_df = pd.concat(data, axis=1, keys=headers)
@@ -93,6 +106,8 @@ class Ticker(object):
         return 0
 
     def output_price_file(self):
+
+        # prints price file
         headers = ['price']
         data = [self.df['price']]
         price_df = pd.concat(data, axis=1, keys=headers[-1:])

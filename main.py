@@ -25,6 +25,11 @@ DEF_PORT = 8000
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
+    # supported arguments
+    ## e.g. --tickers AAPL,IBM
+    ##      --port 8000
+    ##      --reload file.csv
+    ##      --minutes 5
     parser.add_argument(CMD_ARG + CMD_TICKERS, help='optional, default is AAPL, max 3 tickers')
     parser.add_argument(CMD_ARG + CMD_PORT, help='optional, default is 8000')
     parser.add_argument(CMD_ARG + CMD_RELOAD, help='optional, default load from AlphaVantage API')
@@ -37,6 +42,7 @@ def parse_arguments():
 
     args = vars(parser.parse_args())
 
+    # parse command line arguments
     if args[CMD_TICKERS]:
         tickers = args[CMD_TICKERS].split(',')
 
@@ -53,7 +59,14 @@ def parse_arguments():
 
 def dict_to_str(dict):
 
-    out = '\n'
+    # output format:
+    #
+    # AAPL   332.50
+    #
+    # IBM    180.30
+    #
+
+    out = ''
     err_count = 0
 
     for key, value in dict.items():
@@ -75,6 +88,7 @@ def dict_to_str(dict):
 
 def main(args):
 
+    # read in args
     port = args[CMD_PORT]
     source = args[CMD_RELOAD]
     minutes = args[CMD_MINUTES]
@@ -82,6 +96,7 @@ def main(args):
 
     cur_ticker_list = tickers
 
+    # ctrl+c -> quit with exit code 0
     signal.signal(signal.SIGINT, lambda x, y: sys.exit(0))
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -89,10 +104,13 @@ def main(args):
         s.listen(4)
 
         print("Starting up server")
+
+        # read from file (only one file for one ticker supported) or AlphaVantage API
         if source:
             sv = Server(tickers, minutes, source)
         else:
             sv = Server(tickers, minutes)
+
         print("Server started")
 
         print("Server now awaiting client connection")
@@ -118,14 +136,19 @@ def main(args):
 
                     server_in = sys.stdin.readline().strip()
 
-                    if server_in == 'port':
-                        out = sv.set_port()
-                        print(out)
+                    # allowing for stdin
+                    if server_in == '--price now':
+                        dict_to_str
+                        out = sv.get_price_at('now')
+                        print(dict_to_str(out))
 
+                # commands from client
                 else:
                     try:
                         data = x.recv(1024).decode('utf-8')
                     except socket.error as e:
+
+                        # client disconnect
                         print('Broken pipe:', e)
                         inputSockets.remove(x)
                         print('Most likely client disconnected')
@@ -135,6 +158,14 @@ def main(args):
                     serv_response = 'Server has no data'
                     print('Server last updated at:' + str(sv.get_last_updated()))
 
+                    # supported client commands
+                    ## --price 2020-04-09-13:30
+                    ## --price now
+                    ## --signal 2020-04-09-13:30
+                    ## --signal now
+                    ## --del_ticker TICKER
+                    ## --add_ticker TICKER
+                    ## --reset
                     if '--price' in data:
 
                         if data.strip() == '--price now':
@@ -152,7 +183,7 @@ def main(args):
                             except:
                                 print('Error in --price call')
 
-                    if '--signal' in data:
+                    elif '--signal' in data:
                         
                         if data.strip() == '--signal now':
                             serv_response = dict_to_str(sv.get_signal_at('now'))
@@ -169,7 +200,7 @@ def main(args):
                             except:
                                 print('Error in --signal call')
                     
-                    if '--del_ticker' in data:
+                    elif '--del_ticker' in data:
 
                         try:
                             ticker = data.strip().split(' ')[1]
@@ -180,7 +211,7 @@ def main(args):
                             serv_response = str(1)
                             print('Error in --del_ticker call')
 
-                    if '--add_ticker' in data:
+                    elif '--add_ticker' in data:
 
                         try:
                             ticker = data.strip().split(' ')[1]
@@ -191,18 +222,31 @@ def main(args):
                             serv_response = str(1)
                             print('Error in --add_ticker call')
 
-                    if '--reset' in data:
+                    elif '--reset' in data:
 
                         try:
                             sv = Server(cur_ticker_list, minutes)
                             serv_response = str(0)
                         except:
                             serv_response = str(1)
+                    
+                    else:
+                        serv_response = 'Unsupported command'
+                        serv_response += 'please send a command in one of the following forms\n'
+                        serv_response += '--price YYYY-MM-DD-HH:MM or --price now\n'
+                        serv_response += '--signal YYYY-MM-DD-HH:MM or --signal now\n'
+                        serv_response += '--del_ticker TICKER\n'
+                        serv_response += '--add_ticker TICKER\n'
+                        serv_response += '--reset\n'
+                    
                     try:
                         x.sendall(serv_response.encode())
                     except socket.error as e:
                         print('Broken pipe:', e)
                         print('Most likely client disconnected')
+                    
+
+                    
 
 
 if __name__ == '__main__':

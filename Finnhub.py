@@ -12,6 +12,7 @@ class FinnHub(object):
     
     def get(self, f, params):
 
+        # grabs most updated intraday price
         params['token'] = self.key
 
         response = requests.get(url=FinnHub._FINNHUB_URL+f, params=params)

@@ -15,9 +15,8 @@ CMD_RESET = 'reset'
 DEF_HOST = '127.0.0.1'
 DEF_PORT = 8000
 
-ERROR_EMAIL = 'email.txt'
-
 def send_error_email():
+    # send error email if cannot reach server
 
     sender = config.sender
     receiver = config.receiver
@@ -25,7 +24,7 @@ def send_error_email():
     password = config.email_password
 
     # not sending email if config isn't set up
-    if password == '' or password == 'your password here'
+    if password == '' or password == 'your password here':
         return
 
     subject = 'Server does not respond'
@@ -47,6 +46,16 @@ def send_error_email():
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+
+    # supported arguments
+    ## --price 2020-04-09-13:30
+    ## --price now
+    ## --signal 2020-04-09-13:30
+    ## --signal now
+    ## --server_address XXX.XXX.XXX.XXX:YYYY
+    ## --del_ticker TICKER
+    ## --add_ticker TICKER
+    ## --reset
 
     parser.add_argument(CMD_ARG + CMD_PRICE)
     parser.add_argument(CMD_ARG + CMD_SIGNAL)
@@ -97,7 +106,7 @@ def main(host, port, args):
 
             # return here if only client can only send command line arguments
             # else comment out return for client to continue sending server stdin commands
-            return
+            # return
 
         while True:
             for client_in in sys.stdin:
