@@ -10,7 +10,7 @@ To run this component:
 	Set up your email details in config.py (currently using gmail)
 
 To run the server:
-	python server.py
+	python main.py
 
 To run the client:
 	python client.py
