@@ -115,7 +115,7 @@ def main(args):
 
         print("Server now awaiting client connection")
 
-        inputSockets = [s, sys.stdin]
+        inputSockets = [s]
         baseSockets = inputSockets
         
         while True:
@@ -131,16 +131,16 @@ def main(args):
                     print('Connected by', address)
                     inputSockets.append(connection)
 
-                # server command line arguments
-                elif x == sys.stdin:
+                # # server command line arguments
+                # elif x == sys.stdin:
 
-                    server_in = sys.stdin.readline().strip()
+                #     server_in = sys.stdin.readline().strip()
 
-                    # allowing for stdin
-                    if server_in == '--price now':
-                        dict_to_str
-                        out = sv.get_price_at('now')
-                        print(dict_to_str(out))
+                #     # allowing for stdin
+                #     if server_in == '--price now':
+                #         dict_to_str
+                #         out = sv.get_price_at('now')
+                #         print(dict_to_str(out))
 
                 # commands from client
                 else:
